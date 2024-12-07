@@ -21,12 +21,12 @@ Make sure you have the following installed on your system:
 
 1. **Clone the Repository** <br>
    git clone https://github.com/himanshu-nimonkar/dds-backend-main.git <br>
-   cd dds-backend-main
+   cd dds-backend-main <br>
 2. **Install Dependencies** <br>
-   npm install
+   npm install <br>
 3. **Set Up Environment Variables** <br>
    Create a .env file in the project root and configure the following: <br>
    MONGO_URI=<your_mongo_connection_string> <br>
-   PORT=3000
+   PORT=3000 <br>
 4. **Start the Server** <br>
-   npm start
+   npm start 
