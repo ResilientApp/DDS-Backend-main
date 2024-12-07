@@ -4,18 +4,17 @@ const User = require('./User');
 
 const router = express.Router();
 
-// Registration route - handle user registration
+// User registration route
 router.post('/register', async (req, res) => {
   const { username, password } = req.body;
 
   try {
-    // Check if the username already exists
+    // Check if the username already exists and send warning if it does
     const existingUser = await User.findOne({ username });
     if (existingUser) {
       return res.status(400).send('Username already taken');
     }
 
-    // Create a new user with password
     const newUser = new User({ username, password });
     await newUser.save();
 
@@ -26,12 +25,13 @@ router.post('/register', async (req, res) => {
   }
 });
 
-// Login route - handle login
+// User Login Route
 router.post('/login', async (req, res) => {
   const { username, password } = req.body;
 
   try {
-    // Find the user by username
+    
+    // search if user exists in the db using 'username'
     const user = await User.findOne({ username });
     if (!user) {
       return res.status(400).send('Invalid username');
@@ -50,35 +50,33 @@ router.post('/login', async (req, res) => {
   }
 });
 
-// Route to post a new listing
+// Posting a new listing route
 router.post('/new-listing', async (req, res) => {
   const { title, description, minBidValue, username, imageBase64 } = req.body;
 
-  // Validate input
+  // no field can be left blank by the user while creating new listing
   if (!title || !description || !minBidValue || !username || !imageBase64) {
     return res.status(400).json({ message: 'All fields are required' });
   }
 
   try {
-    // Find the user by username
     const user = await User.findOne({ username });
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
 
-    // Create a new listing
     const newListing = {
       title,
       description,
       minBidValue: parseInt(minBidValue),
-      image: imageBase64, // Store Base64 string directly
+      image: imageBase64, 
     };
 
-    // Add the listing to the user's profile and save
+    // Add the listing to the user's profile
     user.listings.push(newListing);
     await user.save();
 
-    // Retrieve the newly created listing (last element of the listings array)
+    // Retrieve the newly created listing
     const createdListing = user.listings[user.listings.length - 1];
 
     res.status(200).json(createdListing);
@@ -90,18 +88,16 @@ router.post('/new-listing', async (req, res) => {
 
 
 
-// Route to get all listings from all users
+// Retreives all active listings on the website
 router.get('/all-listings', async (req, res) => {
   try {
-    // Retrieve all users from the database
     const users = await User.find();
 
     // Extract all listings from all users
     const allListings = users.reduce((acc, user) => {
-      return acc.concat(user.listings); // Concatenate each user's listings to the accumulator
+      return acc.concat(user.listings); 
     }, []);
 
-    // Return the array of all listings
     res.json(allListings);
   } catch (err) {
     console.error('Error retrieving listings:', err);
@@ -109,44 +105,38 @@ router.get('/all-listings', async (req, res) => {
   }
 });
 
-// Route to get all listings for a specific user based on their username
+// Route all active listings for a specific user
 router.get('/my-listings', async (req, res) => {
-  const { username } = req.query;  // Get username from query parameters
+  const { username } = req.query;  
 
   if (!username) {
     return res.status(400).send('Username is required');
   }
 
   try {
-    // Find the user by their username
     const user = await User.findOne({ username });
 
-    // If no user is found, return an error message
     if (!user) {
       return res.status(404).send('User not found');
     }
 
-    // Return the user's listings
-    res.json(user.listings);  // Send the array of listings
+    res.json(user.listings);  
   } catch (err) {
     console.error('Error retrieving user listings:', err);
     res.status(500).send('Error retrieving listings');
   }
 });
 
-// Route to delete a listing
+// Delete a listing route
 router.delete('/delete-listing', async (req, res) => {
-  const { username, listingId } = req.body;  // Get username and listingId from the request body
+  const { username, listingId } = req.body;  
 
   if (!username || !listingId) {
     return res.status(400).send('Username and listingId are required');
   }
 
   try {
-    // Find the user by their username
     const user = await User.findOne({ username });
-
-    // If no user is found, return an error
     if (!user) {
       return res.status(404).send('User not found');
     }
@@ -154,18 +144,15 @@ router.delete('/delete-listing', async (req, res) => {
     // Find the index of the listing to delete using the MongoDB _id field
     const listingIndex = user.listings.findIndex(listing => listing._id.toString() === listingId);
 
-    // If the listing doesn't exist, return an error
+    // Listing doesn't exist
     if (listingIndex === -1) {
       return res.status(404).send('Listing not found');
     }
 
-    // Remove the listing from the listings array
     user.listings.splice(listingIndex, 1);
 
-    // Save the updated user document
     await user.save();
 
-    // Send a success message
     res.send('Listing deleted successfully');
   } catch (err) {
     console.error('Error deleting listing:', err);
@@ -173,16 +160,15 @@ router.delete('/delete-listing', async (req, res) => {
   }
 });
 
-//Route to post a bid
+// Route to post a bid
 router.post('/post-bid', async (req, res) => {
-  const { username, listingId, bidValue } = req.body;  // Get username, listingId, and bidValue from the request body
+  const { username, listingId, bidValue } = req.body;  
 
   if (!username || !listingId || !bidValue) {
     return res.status(400).send('Username, listingId, and bidValue are required');
   }
 
   try {
-    // Find the user who owns the listing
     const userWithListing = await User.findOne({ 'listings._id': listingId });
 
     if (!userWithListing) {
@@ -192,12 +178,11 @@ router.post('/post-bid', async (req, res) => {
     // Locate the specific listing within that user's listings array
     const listing = userWithListing.listings.id(listingId);
 
-    // If no listing is found, return an error
     if (!listing) {
       return res.status(404).send('Listing not found');
     }
 
-    // Check if the user attempting to bid is the owner of the listing
+    // Checks if the user attempting to bid is the owner of the listing
     if (userWithListing.username === username) {
       return res.status(403).send('You cannot bid on your own listing');
     }
@@ -214,32 +199,26 @@ router.post('/post-bid', async (req, res) => {
       return currentBid.bidValue > maxBid.bidValue ? currentBid : maxBid;
     }, { bidValue: 0 });
 
-    // Ensure the new bid is greater than the current highest bid
     if (bidValue <= highestBid.bidValue) {
       return res.status(400).send(`Bid value must be higher than the current highest bid of ${highestBid.bidValue}`);
     }
     }
 
-    // Manually construct the bid as a plain object without Mongoose's _id generation
     const newBid = {
       bidValue: Number(bidValue),
       username: String(username)
     };
 
-    // Add the bid to the listing's bids array
     listing.bids.push(newBid);
 
-    // Run validation synchronously to catch errors before saving
     const validationError = userWithListing.validateSync();
     if (validationError) {
       console.error('Validation Error:', validationError);
       return res.status(400).send(`Validation Error: ${validationError.message}`);
     }
 
-    // Save the updated user document
     await userWithListing.save();
 
-    // Send a success message
     res.send('Bid placed successfully');
   } catch (err) {
     console.error('Error placing bid:', err);
@@ -247,6 +226,7 @@ router.post('/post-bid', async (req, res) => {
   }
 });
 
+// Selling an item route
 router.post('/sell-item', async (req, res) => {
   const { sellerUsername, listingId } = req.body;
 
@@ -255,13 +235,13 @@ router.post('/sell-item', async (req, res) => {
   }
 
   try {
-    // Verify that the seller exists
+    // Checks if seller exists using their username
     const seller = await User.findOne({ username: sellerUsername });
     if (!seller) {
       return res.status(404).send('Seller not found');
     }
 
-    // Find listing under the seller's listings
+    // Find specific listing
     const listing = seller.listings.id(listingId);
     if (!listing) {
       return res.status(404).send('Listing not found for this seller');
@@ -275,10 +255,9 @@ router.post('/sell-item', async (req, res) => {
     // find the highest bid
     const highestBid = listing.bids.reduce((max, bid) => (bid.bidValue > max.bidValue ? bid : max), listing.bids[0]);
 
-    // Complete sale transaction
-    listing.sold = true; // Add a `sold` flag to indicate the item has been sold
-    listing.soldTo = highestBid.username; // Add `soldTo` field to record the buyer's username
-    listing.soldPrice = highestBid.bidValue; // Record the final selling price
+    listing.sold = true; 
+    listing.soldTo = highestBid.username; 
+    listing.soldPrice = highestBid.bidValue; 
 
     await seller.save();
 
@@ -295,16 +274,14 @@ router.post('/sell-item', async (req, res) => {
 });
 
 // Route to get all items bought by a specific user
-// Route to get all items bought by a specific user
 router.get('/bought-by-me', async (req, res) => {
-  const { username } = req.query; // Extract username from query parameters
+  const { username } = req.query; 
 
   if (!username) {
     return res.status(400).json({ error: 'Username is required' });
   }
 
   try {
-    // Find all users with listings
     const users = await User.find();
 
     if (!users || users.length === 0) {
@@ -312,12 +289,11 @@ router.get('/bought-by-me', async (req, res) => {
     }
 
 
-    // Iterate through all users and extract listings where soldTo matches the username
+    // Extract listings from all users where soldTo matches the username
     const boughtListings = users.flatMap(user => 
       user.listings.filter(listing => listing.soldTo === username)
     );
 
-    // Send the filtered listings back in the response
     res.status(200).json(boughtListings);
   } catch (err) {
     console.error('Error retrieving bought items:', err);
@@ -330,21 +306,19 @@ router.get('/bought-by-me', async (req, res) => {
 
 // Route to get all items sold by a specific user
 router.get('/sold-by-me', async (req, res) => {
-  const { username } = req.query; // Extract username from query parameters
+  const { username } = req.query; 
 
   if (!username) {
     return res.status(400).json({ error: 'Username is required' });
   }
 
   try {
-    // Find the user by username
     const user = await User.findOne({ username });
 
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
     }
-
-    // Extract listings where the sold flag is true
+    
     const soldListings = user.listings.filter(listing => listing.sold);
     res.status(200).json(soldListings);
   } catch (err) {
