@@ -30,7 +30,7 @@ app.use(bodyParser.json());
 
 // Import routes from app.js
 const routes = require('./app');
-app.use('/', routes);
+app.use('/api', routes);
 
 // Start the server
 const PORT = 3000; 
