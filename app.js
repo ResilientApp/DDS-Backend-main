@@ -9,7 +9,6 @@ router.post('/register', async (req, res) => {
   const { username, password } = req.body;
 
   try {
-    // Check if the username already exists and send warning if it does
     const existingUser = await User.findOne({ username });
     if (existingUser) {
       return res.status(400).send('Username already taken');
@@ -30,14 +29,11 @@ router.post('/login', async (req, res) => {
   const { username, password } = req.body;
 
   try {
-    
-    // search if user exists in the db using 'username'
     const user = await User.findOne({ username });
     if (!user) {
       return res.status(400).send('Invalid username');
     }
 
-    // Compare password with the stored hashed password
     const isMatch = await user.comparePassword(password);
     if (!isMatch) {
       return res.status(400).send('Invalid password');
@@ -54,7 +50,6 @@ router.post('/login', async (req, res) => {
 router.post('/new-listing', async (req, res) => {
   const { title, description, minBidValue, username, imageBase64 } = req.body;
 
-  // no field can be left blank by the user while creating new listing
   if (!title || !description || !minBidValue || !username || !imageBase64) {
     return res.status(400).json({ message: 'All fields are required' });
   }
@@ -72,11 +67,9 @@ router.post('/new-listing', async (req, res) => {
       image: imageBase64, 
     };
 
-    // Add the listing to the user's profile
     user.listings.push(newListing);
     await user.save();
 
-    // Retrieve the newly created listing
     const createdListing = user.listings[user.listings.length - 1];
 
     res.status(200).json(createdListing);
@@ -93,7 +86,6 @@ router.get('/all-listings', async (req, res) => {
   try {
     const users = await User.find();
 
-    // Extract all listings from all users
     const allListings = users.reduce((acc, user) => {
       return acc.concat(user.listings); 
     }, []);
@@ -141,10 +133,8 @@ router.delete('/delete-listing', async (req, res) => {
       return res.status(404).send('User not found');
     }
 
-    // Find the index of the listing to delete using the MongoDB _id field
     const listingIndex = user.listings.findIndex(listing => listing._id.toString() === listingId);
 
-    // Listing doesn't exist
     if (listingIndex === -1) {
       return res.status(404).send('Listing not found');
     }
@@ -175,26 +165,21 @@ router.post('/post-bid', async (req, res) => {
       return res.status(404).send('Listing not found');
     }
 
-    // Locate the specific listing within that user's listings array
     const listing = userWithListing.listings.id(listingId);
 
     if (!listing) {
       return res.status(404).send('Listing not found');
     }
 
-    // Checks if the user attempting to bid is the owner of the listing
     if (userWithListing.username === username) {
       return res.status(403).send('You cannot bid on your own listing');
     }
 
-    // Check if the bid is greater than the minBidValue if it's the first bid
     if (listing.bids.length === 0) {
-      // If this is the first bid, it must be greater than the minimum bid value
       if (bidValue < listing.minBidValue) {
         return res.status(400).send(`First bid must be greater than the minimum bid value of ${listing.minBidValue}`);
       }
     } else {
-    // Otherwise ensure the bid is greater than the current highest bid
     const highestBid = listing.bids.reduce((maxBid, currentBid) => {
       return currentBid.bidValue > maxBid.bidValue ? currentBid : maxBid;
     }, { bidValue: 0 });
@@ -235,24 +220,20 @@ router.post('/sell-item', async (req, res) => {
   }
 
   try {
-    // Checks if seller exists using their username
     const seller = await User.findOne({ username: sellerUsername });
     if (!seller) {
       return res.status(404).send('Seller not found');
     }
 
-    // Find specific listing
     const listing = seller.listings.id(listingId);
     if (!listing) {
       return res.status(404).send('Listing not found for this seller');
     }
 
-    // Check if there are bids on the listing
     if (listing.bids.length === 0) {
       return res.status(400).send('No bids available for this listing');
     }
 
-    // find the highest bid
     const highestBid = listing.bids.reduce((max, bid) => (bid.bidValue > max.bidValue ? bid : max), listing.bids[0]);
 
     listing.sold = true; 
@@ -289,7 +270,6 @@ router.get('/bought-by-me', async (req, res) => {
     }
 
 
-    // Extract listings from all users where soldTo matches the username
     const boughtListings = users.flatMap(user => 
       user.listings.filter(listing => listing.soldTo === username)
     );
